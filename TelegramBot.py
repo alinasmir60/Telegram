@@ -70,7 +70,7 @@ def irregular_verbs(bot, update, user_data):
     markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
     user_data["true_answ"] = choice_word, trans_word[1]
-    user_data["false_answ"] = trans_word[1:]
+    user_data["false_answ"] = trans_word[0]
     user_data["keyboard"] = markup
 
     update.message.reply_text(choice_word, reply_markup=markup)
@@ -80,7 +80,7 @@ def translater(bot, update, user_data):
     user_data["func"] = "translate"
 
     # клавиатура для переводчика
-    reply_keyboard_transl = [["/en_ru", "/ru_en"], ["/quiz", "/stop"]]
+    reply_keyboard_transl = [["/en_ru", "/ru_en"], ["/irr_verbs", "/quiz", "/stop"]]
 
     update.message.reply_text("Вы активировали переводчик.\nВы можете выбрать язык перевода.",
                               reply_markup=ReplyKeyboardMarkup(reply_keyboard_transl))
@@ -95,33 +95,59 @@ def answer(bot, update, user_data):
     # клавиатура при неправильном ответе
     reply_keyboard_false = [["Повторить попытку", "Правильный ответ"], ["/quiz", "/irr_verbs", "/translater", "/stop"]]
 
+    markup = user_data["keyboard"]
+
     if user_data["func"] == "quiz" or user_data["func"] == "verbs":
         if answ == user_data["true_answ"][1]:
+            user_data["answer"] = "true"
             update.message.reply_text("правильно!", reply_markup=ReplyKeyboardMarkup(reply_keyboard_true))
         elif answ == "правильный ответ":
+            user_data["answer"] = "true"
             update.message.reply_text("{}: {}".format(answ, user_data["true_answ"][1]),
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard_true))
         elif answ == "повторить попытку":
+            user_data["answer"] = "retry"
             update.message.reply_text("Вы решили повторить попытку.")
             update.message.reply_text(user_data["true_answ"][0], reply_markup=user_data["keyboard"])
         elif answ != user_data["true_answ"] and answ in user_data["false_answ"]:
+            user_data["answer"] = "false"
             update.message.reply_text("Не правильно!", reply_markup=ReplyKeyboardMarkup(reply_keyboard_false))
+        else:
+            if user_data["answer"] == "retry":
+                markup = user_data["keyboard"]
+            elif user_data["answer"] == "true":
+                markup = ReplyKeyboardMarkup(reply_keyboard_true)
+            elif user_data["answer"] == "false":
+                markup = ReplyKeyboardMarkup(reply_keyboard_false)
+            update.message.reply_text("Извините, произошла ошибка при обработке Вашего ответа."
+                                      "\nВы можете выбрать слово/команду на клавиатуре бота(если она скрыта, то нажмите"
+                                      " на значок) или ввести слово на клавиатуре(!если этого слова не будет на "
+                                      "клавиатуре, то вы вновь увидите это сообщение, поэтому лучше воспользоваться "
+                                      "клавиатурой!)",
+                                      reply_markup=markup)
     elif user_data["func"] == "translate":
         text = translater_word(answ, user_data["lang"])
         accompanying_text = "Переведено сервисом «Яндекс.Переводчик» http://translate.yandex.ru/."
         update.message.reply_text("\n\n".join([text, accompanying_text]))
+    else:
+        update.message.reply_text("Упс... Произошла ошибка при обработке вашего запроса. Пожалуйста выберите нужную "
+                                  "команду на клавиатуре", reply_markup=ReplyKeyboardMarkup(reply_keyboard_start))
 
 
 def en_ru(bot, update, user_data):
-    if user_data["func"] == "translater":
+    if user_data["func"] == "translate":
         update.message.reply_text("Язык перевода: Английский - Русский")
         user_data["lang"] = lang_en
+    else:
+        update.message.reply_text("Вызов данной команды возможен только после вызова команды /translater.")
 
 
 def ru_en(bot, update, user_data):
-    if user_data["func"] == "translater":
+    if user_data["func"] == "translate":
         update.message.reply_text("Язык перевода: Русский - Английский")
         user_data["lang"] = lang_ru
+    else:
+        update.message.reply_text("Вызов данной команды возможен только после вызова команды /translater.")
 
 
 def choose_word(func):
@@ -144,7 +170,7 @@ def translater_word(text, lang):
     response = requests.get(
         translator_uri,
         params={
-            "key": "",
+            "key": "trnsl.1.1.20180401T224213Z.c1143abeda1b8ddf.366d17dd4a20cb2ccc211c86c4bb1ec637a175de",
             "lang": lang,
             "text": text
         })
@@ -155,19 +181,19 @@ lang_ru = "ru-en"
 lang_en = "en-ru"
 
 word = string.split(", ")
-translat = [translater_word(i, "ru-en") for i in word]
+translat = [translater_word(i, lang_ru) for i in word]
 
 irr_verbs = {}
 for i in verbs:
     str_i = i.split()
-    irr_verbs[str_i[0]] = str_i[1]
+    irr_verbs[str_i[1]] = str_i[0]
 
 reply_keyboard_start = [["/quiz", "/irr_verbs", "/translater"], ["/stop"]] #стандартная клавиатура
 markup_start = ReplyKeyboardMarkup(reply_keyboard_start, one_time_keyboard=False)
 
 
 def main():
-    updater = Updater("")
+    updater = Updater("579972815:AAGbvmvV4Ukoo5wIg19T_9GKVsVW1_e-UnI")
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("start", start, pass_user_data=True))
